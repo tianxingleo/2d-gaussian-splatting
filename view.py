@@ -24,15 +24,19 @@ def view(dataset, pipe, iteration):
                         render_pkg = render(custom_cam, gaussians, pipe, background, scaling_modifer)
                         net_image = render_net_image(render_pkg, dataset.render_items, render_mode, custom_cam)
                         net_image_bytes = memoryview((torch.clamp(net_image, min=0, max=1.0) * 255).byte().permute(1, 2, 0).contiguous().cpu().numpy())
-                    metrics_dict = {
-                        "#": gaussians.get_opacity.shape[0]
-                        # Add more metrics as needed
-                    }
-                    network_gui.send(net_image_bytes, dataset.source_path, metrics_dict)
+                    
+                    if network_gui.conn != None:
+                        metrics_dict = {
+                            "#": gaussians.get_opacity.shape[0]
+                            # Add more metrics as needed
+                        }
+                        network_gui.send(net_image_bytes, dataset.source_path, metrics_dict)
                 except Exception as e:
-                    raise e
-                    print('Viewer closed')
-                    exit(0)
+                    print(f'\nViewer connection lost: {e}')
+                    if network_gui.conn:
+                        network_gui.conn.close()
+                    network_gui.conn = None
+                    break
 
 if __name__ == "__main__":
 

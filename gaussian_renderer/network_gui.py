@@ -55,21 +55,39 @@ def try_connect(render_items):
             
 def read():
     global conn
-    messageLength = conn.recv(4)
-    messageLength = int.from_bytes(messageLength, 'little')
-    message = conn.recv(messageLength)
-    return json.loads(message.decode("utf-8"))
+    try:
+        messageLength = conn.recv(4)
+        if len(messageLength) != 4:
+            raise ConnectionError("Connection reset by peer")
+        messageLength = int.from_bytes(messageLength, 'little')
+        message = conn.recv(messageLength)
+        if len(message) != messageLength:
+            raise ConnectionError("Disconnected or incomplete message received")
+        return json.loads(message.decode("utf-8"))
+    except (ConnectionError, json.JSONDecodeError, socket.error) as e:
+        if conn:
+            conn.close()
+        conn = None
+        return None
 
 def send(message_bytes, verify, metrics):
     global conn
-    if message_bytes != None:
-        conn.sendall(message_bytes)
-    conn.sendall(len(verify).to_bytes(4, 'little'))
-    conn.sendall(bytes(verify, 'ascii'))
-    send_json_data(conn, metrics)
+    try:
+        if message_bytes != None:
+            conn.sendall(message_bytes)
+        conn.sendall(len(verify).to_bytes(4, 'little'))
+        conn.sendall(bytes(verify, 'ascii'))
+        send_json_data(conn, metrics)
+    except (ConnectionError, socket.error):
+        if conn:
+            conn.close()
+        conn = None
 
 def receive():
     message = read()
+    if message is None:
+        return None, None, None, None, None
+    
     width = message["resolution_x"]
     height = message["resolution_y"]
 

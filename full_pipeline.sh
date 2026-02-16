@@ -6,7 +6,7 @@ set -e
 # ================= 配置 =================
 VIDEO_PATH=$1      # 第一个参数：视频文件路径
 SCENE_NAME=$2      # 第二个参数：场景名称（如 my_video）
-ITERATIONS=${3:-7000} # 第三个参数：迭代次数（可选，默认 7000）
+ITERATIONS=${3:-30000} # 第三个参数：迭代次数（可选，默认 30000）
 
 if [ -z "$VIDEO_PATH" ] || [ -z "$SCENE_NAME" ]; then
     echo "用法: ./full_pipeline.sh <视频路径> <场景名称> [迭代次数]"
@@ -115,6 +115,13 @@ echo "==== 🧠 [4/5] 整理完成，准备训练 ===="
 # $DATA_DIR/sparse/0 (位姿)
 
 echo "==== 🏋️ [5/5] 开始 2DGS 训练 ===="
+# 检查端口 6009 是否被占用，如果占用则杀掉进程防止报错
+PORT_PID=$(netstat -nlp 2>/dev/null | grep :6009 | awk '{print $7}' | cut -d'/' -f1)
+if [ ! -z "$PORT_PID" ]; then
+    echo "检测到端口 6009 被进程 $PORT_PID 占用，正在清理..."
+    kill -9 $PORT_PID 2>/dev/null || true
+fi
+
 python train.py -s "$DATA_DIR" -m "$OUTPUT_DIR" --iterations "$ITERATIONS"
 
 echo "==== ✨ 全部流程已完成！ ===="
